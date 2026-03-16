@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Confirmation - Gato Shipments</title>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #8B1A1A, #b22222);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .app-header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .app-header .subtitle {
+      font-size: 13px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-freeze {
+      background: #fff;
+      color: #8B1A1A;
+    }
+    .btn-freeze:hover { background: #f5e6e6; }
+    .btn-clear {
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .btn-clear:hover { background: rgba(255,255,255,0.25); }
+
+    .container {
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .page {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+    .page-label {
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .page-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #333;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+    .section-header {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #8B1A1A;
+      border-bottom: 2px solid #8B1A1A;
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+    }
+    .form-grid.three-col {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+    .form-grid.four-col {
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+    .form-grid.five-col {
+      grid-template-columns: 1.5fr 1fr 0.8fr 1fr 1fr;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .form-group.span-2 {
+      grid-column: span 2;
+    }
+    .form-group.span-3 {
+      grid-column: span 3;
+    }
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .form-group input,
+    .form-group textarea {
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      background: #fafafa;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #8B1A1A;
+      background: #fff;
+      box-shadow: 0 0 0 2px rgba(139,26,26,0.1);
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    .form-group input.readonly-field {
+      background: #e9e9e9;
+      color: #666;
+    }
+
+    .dispatch-notes {
+      background: #f8f8f8;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .dispatch-notes h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 8px;
+    }
+    .dispatch-notes p {
+      font-size: 11px;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .carrier-pay-section {
+      display: flex;
+      gap: 20px;
+      align-items: flex-end;
+    }
+
+    .frozen-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .frozen-overlay.active { display: flex; }
+    .frozen-modal {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      max-width: 400px;
+    }
+    .frozen-modal h2 { margin-bottom: 12px; color: #333; }
+    .frozen-modal p { color: #666; margin-bottom: 20px; font-size: 14px; }
+    .frozen-modal .btn { margin: 0 auto; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-open { background: #e6f7e6; color: #2d7a2d; }
+    .status-frozen { background: #f0e6e6; color: #8B1A1A; }
+
+    .load-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 700px) {
+      .form-grid, .form-grid.three-col, .form-grid.four-col, .form-grid.five-col {
+        grid-template-columns: 1fr;
+      }
+      .form-group.span-2, .form-group.span-3 { grid-column: span 1; }
+      .page { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>Rate & Load Confirmation</h1>
+    <div class="subtitle">Gato Shipments</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-clear" onclick="clearForm()">Clear All</button>
+    <button class="btn btn-freeze" id="freezeBtn" onclick="freezeAndDownload()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg>
+      Freeze & Download PDF
+    </button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- PAGE 1 -->
+  <div class="page">
+    <div class="page-label">Page 1 of 2</div>
+    <div class="page-title">Rate & Load Confirmation</div>
+
+    <div class="load-status-row">
+      <span class="status-badge status-open" id="statusBadge">Open</span>
+    </div>
+
+    <!-- Dispatcher Info -->
+    <div class="section">
+      <div class="section-header">Dispatcher Info</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Dispatcher</label>
+          <input type="text" id="Dispatcher" placeholder="e.g. David P">
+        </div>
+        <div class="form-group">
+          <label>Load #</label>
+          <input type="text" id="Load_Number" placeholder="e.g. 3266">
+        </div>
+        <div class="form-group">
+          <label>Phone #</label>
+          <input type="text" id="Phone" placeholder="e.g. 406-206-7747">
+        </div>
+        <div class="form-group">
+          <label>Ship Date</label>
+          <input type="text" id="Ship_Date" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="form-group">
+          <label>Fax #</label>
+          <input type="text" id="Fax" placeholder="Fax number">
+        </div>
+        <div class="form-group">
+          <label>Today's Date</label>
+          <input type="text" id="Todays_Date" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="form-group">
+          <label>W/O</label>
+          <input type="text" id="WO" placeholder="Work order">
+        </div>
+      </div>
+    </div>
+
+    <!-- Carrier Info -->
+    <div class="section">
+      <div class="section-header">Carrier</div>
+      <div class="form-grid five-col">
+        <div class="form-group">
+          <label>Carrier Name</label>
+          <input type="text" id="Carrier_Name" placeholder="Carrier name">
+        </div>
+        <div class="form-group">
+          <label>Phone #</label>
+          <input type="text" id="Carrier_Phone" placeholder="Phone">
+        </div>
+        <div class="form-group">
+          <label>Fax #</label>
+          <input type="text" id="Carrier_Fax" placeholder="Fax">
+        </div>
+        <div class="form-group">
+          <label>Equipment</label>
+          <input type="text" id="Equipment" placeholder="e.g. 53' Van">
+        </div>
+        <div class="form-group">
+          <label>Agreed Amount</label>
+          <input type="text" id="Agreed_Amount" placeholder="$0.00 USD">
+        </div>
+      </div>
+    </div>
+
+    <!-- Shipper -->
+    <div class="section">
+      <div class="section-header">Shipper 1</div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Shipper Address</label>
+          <textarea id="Shipper_Address" rows="3" placeholder="Company Name&#10;Street Address&#10;City, State, ZIP"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="text" id="Shipper_Date" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="form-group">
+          <label>Purchase Order #</label>
+          <input type="text" id="Shipper_PO" placeholder="PO number">
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <input type="text" id="Shipper_Time" placeholder="Time">
+        </div>
+        <div class="form-group">
+          <label>Major Intersection</label>
+          <input type="text" id="Shipper_Major_Int" placeholder="Intersection">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <input type="text" id="Shipper_Type" placeholder="Type">
+        </div>
+        <div class="form-group">
+          <label>Shipping Hours</label>
+          <input type="text" id="Shipper_Hours" placeholder="e.g. 5pm">
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="text" id="Shipper_Qty" placeholder="Quantity">
+        </div>
+        <div class="form-group">
+          <label>Appointment</label>
+          <input type="text" id="Shipper_Appointment" placeholder="Yes / No">
+        </div>
+        <div class="form-group">
+          <label>Weight</label>
+          <input type="text" id="Shipper_Weight" placeholder="e.g. 44200 lbs">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="Shipper_Description" placeholder="Description">
+        </div>
+      </div>
+    </div>
+
+    <!-- Consignee -->
+    <div class="section">
+      <div class="section-header">Consignee 1</div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Consignee Address</label>
+          <textarea id="Consignee_Address" rows="3" placeholder="Company Name&#10;Street Address&#10;City, State, ZIP"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="text" id="Consignee_Date" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="form-group">
+          <label>Purchase Order #</label>
+          <input type="text" id="Consignee_PO" placeholder="PO number">
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <input type="text" id="Consignee_Time" placeholder="Time">
+        </div>
+        <div class="form-group">
+          <label>Major Intersection</label>
+          <input type="text" id="Consignee_Major_Int" placeholder="Intersection">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <input type="text" id="Consignee_Type" placeholder="Type">
+        </div>
+        <div class="form-group">
+          <label>Receiving Hours</label>
+          <input type="text" id="Consignee_Hours" placeholder="Hours">
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="text" id="Consignee_Qty" placeholder="Quantity">
+        </div>
+        <div class="form-group">
+          <label>Appointment</label>
+          <input type="text" id="Consignee_Appointment" placeholder="Yes / No">
+        </div>
+        <div class="form-group">
+          <label>Weight</label>
+          <input type="text" id="Consignee_Weight" placeholder="e.g. 44200 lbs">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="Consignee_Description" placeholder="Description">
+        </div>
+      </div>
+    </div>
+
+    <!-- Carrier Pay -->
+    <div class="section">
+      <div class="section-header">Carrier Pay</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Line Haul</label>
+          <input type="text" id="Line_Haul" placeholder="$0.00">
+        </div>
+        <div class="form-group">
+          <label>Total</label>
+          <input type="text" id="Total" placeholder="$0.00 USD">
+        </div>
+      </div>
+    </div>
+
+    <!-- Dispatch Notes (static) -->
+    <div class="dispatch-notes">
+      <h3>Dispatch Notes</h3>
+      <p>
+        1) Send signed rate confirmation agreement to the email that dispatcher tendering the load.<br>
+        2) Carrier/driver is to call broker when arriving to load; if there are any damages, overages or shortages.<br>
+        3) Drivers are responsible for verifying legal weight of shipment. Both gross weight and axle weight.<br>
+        4) Any deviation or additional charge must be approved and a modified rate confirmation agreement will be sent.<br>
+        5) Detention is paid at a rate of $25/hour after 2 free hours. ($200 maximum detention paid).<br>
+        6) Layover is paid at $150 per day.<br>
+        7) In order to avoid late charges, any delays must be reported at the time of delay.<br>
+        8) The rate confirmation can not be used as a BOL.<br>
+        9) Failure to accept tracking will cause in charges $200.
+      </p>
+    </div>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page">
+    <div class="page-label">Page 2 of 2</div>
+    <div class="page-title">Rate & Load Confirmation</div>
+
+    <div class="section">
+      <div class="section-header">Acceptance & Signature</div>
+      <div class="form-grid three-col">
+        <div class="form-group">
+          <label>Accepted By</label>
+          <input type="text" id="Accepted_By" placeholder="Name">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="text" id="Accepted_Date" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="form-group">
+          <label>Signature</label>
+          <input type="text" id="Signature" placeholder="Signature">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Driver Information</div>
+      <div class="form-grid four-col">
+        <div class="form-group">
+          <label>Driver Name</label>
+          <input type="text" id="Driver_Name" placeholder="Driver name">
+        </div>
+        <div class="form-group">
+          <label>Cell #</label>
+          <input type="text" id="Cell" placeholder="Cell number">
+        </div>
+        <div class="form-group">
+          <label>Truck #</label>
+          <input type="text" id="Truck" placeholder="Truck #">
+        </div>
+        <div class="form-group">
+          <label>Trailer #</label>
+          <input type="text" id="Trailer" placeholder="Trailer #">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay for generating -->
+<div class="frozen-overlay" id="overlay">
+  <div class="frozen-modal">
+    <h2>Generating PDF...</h2>
+    <p>Filling and flattening your rate confirmation.</p>
+  </div>
+</div>
+
+<script>
+  // Auto-fill today's date
+  (function() {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    document.getElementById('Todays_Date').value = mm + '/' + dd + '/' + yyyy;
+  })();
+
+  // Map of web form field IDs to PDF field IDs
+  // Most are the same, but Page 2 header fields auto-sync from Page 1
+  const PAGE1_FIELDS = [
+    'Dispatcher', 'Load_Number', 'Phone', 'Ship_Date', 'Fax', 'Todays_Date', 'WO',
+    'Carrier_Name', 'Carrier_Phone', 'Carrier_Fax', 'Equipment', 'Agreed_Amount',
+    'Shipper_Address', 'Shipper_Date', 'Shipper_PO', 'Shipper_Time', 'Shipper_Major_Int',
+    'Shipper_Type', 'Shipper_Hours', 'Shipper_Qty', 'Shipper_Appointment',
+    'Shipper_Weight', 'Shipper_Description',
+    'Consignee_Address', 'Consignee_Date', 'Consignee_PO', 'Consignee_Time',
+    'Consignee_Major_Int', 'Consignee_Type', 'Consignee_Hours', 'Consignee_Qty',
+    'Consignee_Appointment', 'Consignee_Weight', 'Consignee_Description',
+    'Line_Haul', 'Total'
+  ];
+
+  const PAGE2_FIELDS = [
+    'Accepted_By', 'Signature', 'Driver_Name', 'Cell', 'Truck', 'Trailer'
+  ];
+
+  // Page 2 header mirrors page 1
+  const P2_MIRROR = {
+    'P2_Dispatcher': 'Dispatcher',
+    'P2_Load_Number': 'Load_Number',
+    'P2_Phone': 'Phone',
+    'P2_Ship_Date': 'Ship_Date',
+    'P2_Fax': 'Fax',
+    'P2_Todays_Date': 'Todays_Date'
+  };
+
+  function clearForm() {
+    const allFields = [...PAGE1_FIELDS, ...PAGE2_FIELDS, 'Accepted_Date'];
+    allFields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    // Re-fill today's date
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    document.getElementById('Todays_Date').value = mm + '/' + dd + '/' + yyyy;
+  }
+
+  async function freezeAndDownload() {
+    const overlay = document.getElementById('overlay');
+    overlay.classList.add('active');
+
+    try {
+      // Fetch the template PDF
+      const templateBytes = await fetch('template.pdf').then(r => r.arrayBuffer());
+      const pdfDoc = await PDFLib.PDFDocument.load(templateBytes);
+      const form = pdfDoc.getForm();
+
+      // Fill Page 1 fields
+      PAGE1_FIELDS.forEach(fieldId => {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        const val = el.value.trim();
+        try {
+          const field = form.getTextField(fieldId);
+          if (val) field.setText(val);
+        } catch (e) {
+          console.warn('Field not found in PDF:', fieldId, e.message);
+        }
+      });
+
+      // Fill Page 2 unique fields
+      PAGE2_FIELDS.forEach(fieldId => {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        const val = el.value.trim();
+        try {
+          const field = form.getTextField(fieldId);
+          if (val) field.setText(val);
+        } catch (e) {
+          console.warn('Field not found in PDF:', fieldId, e.message);
+        }
+      });
+
+      // Mirror page 1 header to page 2 header
+      Object.entries(P2_MIRROR).forEach(([p2Field, p1Field]) => {
+        const el = document.getElementById(p1Field);
+        if (!el) return;
+        const val = el.value.trim();
+        try {
+          const field = form.getTextField(p2Field);
+          if (val) field.setText(val);
+        } catch (e) {
+          console.warn('P2 mirror field not found:', p2Field, e.message);
+        }
+      });
+
+      // Remove black border lines from all form field widgets before flattening
+      const fields = form.getFields();
+      fields.forEach(field => {
+        const widgets = field.acroField.getWidgets();
+        widgets.forEach(widget => {
+          // Remove the border style
+          widget.dict.delete(PDFLib.PDFName.of('BS'));
+          // Set border width to 0 in the MK (appearance characteristics) dict
+          const mk = widget.dict.lookup(PDFLib.PDFName.of('MK'));
+          if (mk) {
+            widget.dict.delete(PDFLib.PDFName.of('MK'));
+          }
+          // Also clear the AP (appearance) dict to force regeneration without borders
+          widget.dict.delete(PDFLib.PDFName.of('AP'));
+        });
+      });
+
+      // Flatten the form (makes all fields non-editable)
+      form.flatten();
+
+      // Generate and download
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+
+      // Build filename from load number
+      const loadNum = document.getElementById('Load_Number').value.trim();
+      const carrierName = document.getElementById('Carrier_Name').value.trim();
+      let filename = 'Rate_Confirmation';
+      if (loadNum) filename += '_' + loadNum;
+      if (carrierName) filename += '_' + carrierName.replace(/\s+/g, '_');
+      filename += '.pdf';
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Error generating PDF: ' + err.message);
+    } finally {
+      overlay.classList.remove('active');
+    }
+  }
+</script>
+
+</body>
+</html>
